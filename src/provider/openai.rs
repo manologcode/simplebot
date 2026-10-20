@@ -96,7 +96,7 @@ impl Provider for OpenAiProvider {
         }
 
         let mut last_error = String::new();
-        for attempt in 0..4 {
+        for attempt in 0..MAX_ATTEMPTS {
             let response = self
                 .http
                 .post(&url)
@@ -116,30 +116,65 @@ impl Provider for OpenAiProvider {
                     return Ok(turn);
                 }
                 Err(ureq::Error::Status(code, resp)) => {
+                    let retry_after = resp.header("retry-after").and_then(parse_retry_after);
                     let text = resp.into_string().unwrap_or_default();
                     last_error = format!(
                         "HTTP {}: {}",
                         code,
                         crate::process::truncate_middle(&text, 1200)
                     );
-                    if attempt < 3 && (code == 429 || code >= 500) {
-                        thread::sleep(Duration::from_secs(1 << attempt));
+                    if attempt + 1 < MAX_ATTEMPTS && (code == 429 || code >= 500) {
+                        let delay = retry_after.unwrap_or_else(|| backoff(attempt));
+                        log::warn!(
+                            "proveedor HTTP {} (intento {}/{}): reintentando en {} s",
+                            code,
+                            attempt + 1,
+                            MAX_ATTEMPTS,
+                            delay.as_secs()
+                        );
+                        thread::sleep(delay);
                         continue;
                     }
-                    bail!("el proveedor de IA fallo: {last_error}");
+                    bail!(
+                        "el proveedor de IA fallo tras {} intento(s): {last_error}",
+                        attempt + 1
+                    );
                 }
                 Err(err) => {
                     last_error = err.to_string();
-                    if attempt < 3 {
-                        thread::sleep(Duration::from_secs(1 << attempt));
+                    if attempt + 1 < MAX_ATTEMPTS {
+                        let delay = backoff(attempt);
+                        log::warn!(
+                            "no se pudo contactar con el proveedor (intento {}/{}): reintentando en {} s",
+                            attempt + 1,
+                            MAX_ATTEMPTS,
+                            delay.as_secs()
+                        );
+                        thread::sleep(delay);
                         continue;
                     }
-                    bail!("no se pudo contactar con el proveedor de IA: {last_error}");
+                    bail!(
+                        "no se pudo contactar con el proveedor de IA tras {} intento(s): {last_error}",
+                        attempt + 1
+                    );
                 }
             }
         }
         bail!("el proveedor de IA fallo: {last_error}")
     }
+}
+
+const MAX_ATTEMPTS: usize = 5;
+const MAX_BACKOFF_SECS: u64 = 30;
+
+fn backoff(attempt: usize) -> Duration {
+    let secs = 1u64 << attempt.min(5);
+    Duration::from_secs(secs.min(MAX_BACKOFF_SECS))
+}
+
+fn parse_retry_after(value: &str) -> Option<Duration> {
+    let secs = value.trim().parse::<u64>().ok()?;
+    Some(Duration::from_secs(secs.min(MAX_BACKOFF_SECS)))
 }
 
 #[derive(Debug, Deserialize)]
@@ -342,6 +377,24 @@ mod tests {
         let turn = parse_response(text).unwrap();
         assert_eq!(turn.reasoning_content.as_deref(), Some("pensando"));
         assert_eq!(turn.tool_calls.len(), 1);
+    }
+
+    #[test]
+    fn computes_exponential_backoff() {
+        assert_eq!(backoff(0), Duration::from_secs(1));
+        assert_eq!(backoff(3), Duration::from_secs(8));
+        assert_eq!(backoff(10), Duration::from_secs(MAX_BACKOFF_SECS));
+    }
+
+    #[test]
+    fn parses_retry_after_seconds() {
+        assert_eq!(parse_retry_after("0"), Some(Duration::from_secs(0)));
+        assert_eq!(parse_retry_after(" 7 "), Some(Duration::from_secs(7)));
+        assert_eq!(
+            parse_retry_after("120"),
+            Some(Duration::from_secs(MAX_BACKOFF_SECS))
+        );
+        assert_eq!(parse_retry_after("Wed, 21 Oct 2015 07:28:00 GMT"), None);
     }
 
     #[test]
