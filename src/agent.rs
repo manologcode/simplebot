@@ -85,10 +85,14 @@ impl<'a> Agent<'a> {
             }
 
             let assistant_message = assistant_message(&turn, &secrets);
+            let mut logged_message = assistant_message.clone();
+            if let Some(object) = logged_message.as_object_mut() {
+                object.remove("reasoning_content");
+            }
             session.log(json!({
                 "ts": timestamp(),
                 "kind": "assistant",
-                "content": assistant_message,
+                "content": logged_message,
             }));
             messages.push(assistant_message);
 
@@ -314,6 +318,9 @@ fn assistant_message(turn: &AssistantTurn, secrets: &SecretStore) -> Value {
         "role": "assistant",
         "content": turn.content,
     });
+    if let Some(reasoning) = &turn.reasoning_content {
+        message["reasoning_content"] = json!(reasoning);
+    }
     if !turn.tool_calls.is_empty() {
         let calls: Vec<Value> = turn
             .tool_calls
@@ -411,6 +418,7 @@ mod tests {
     fn call(name: &str, arguments: Value) -> AssistantTurn {
         AssistantTurn {
             content: None,
+            reasoning_content: None,
             tool_calls: vec![ToolCall {
                 id: format!("call-{name}"),
                 name: name.to_string(),
@@ -461,6 +469,15 @@ mod tests {
         let outcome = agent.run_task("crea un directorio").unwrap();
         assert!(outcome.success, "{outcome:?}");
         assert_eq!(outcome.steps, 4);
+    }
+
+    #[test]
+    fn passes_reasoning_content_back_with_tool_calls() {
+        let secrets = SecretStore::new();
+        let mut turn = call("run_command", json!({"command": "echo ok"}));
+        turn.reasoning_content = Some("pensamiento".to_string());
+        let message = assistant_message(&turn, &secrets);
+        assert_eq!(message["reasoning_content"], "pensamiento");
     }
 
     #[test]

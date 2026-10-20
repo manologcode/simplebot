@@ -156,6 +156,8 @@ struct Choice {
 #[derive(Debug, Deserialize)]
 struct ResponseMessage {
     content: Option<Value>,
+    reasoning_content: Option<Value>,
+    reasoning: Option<Value>,
     tool_calls: Option<Vec<RawToolCall>>,
 }
 
@@ -183,15 +185,16 @@ fn parse_response(text: &str) -> Result<AssistantTurn> {
         .into_iter()
         .next()
         .context("el proveedor devolvio una respuesta sin choices")?;
-    let content = choice.message.content.and_then(content_to_text);
+    let ResponseMessage {
+        content,
+        reasoning_content,
+        reasoning,
+        tool_calls: raw_tool_calls,
+    } = choice.message;
+    let content = content.and_then(content_to_text);
+    let reasoning_content = reasoning_content.or(reasoning).and_then(content_to_text);
     let mut tool_calls = Vec::new();
-    for (index, raw) in choice
-        .message
-        .tool_calls
-        .unwrap_or_default()
-        .into_iter()
-        .enumerate()
-    {
+    for (index, raw) in raw_tool_calls.unwrap_or_default().into_iter().enumerate() {
         let Some(function) = raw.function else {
             continue;
         };
@@ -211,6 +214,7 @@ fn parse_response(text: &str) -> Result<AssistantTurn> {
     }
     Ok(AssistantTurn {
         content,
+        reasoning_content,
         tool_calls,
         usage: response.usage,
     })
@@ -330,6 +334,14 @@ mod tests {
         apply_json_fallback(&mut turn);
         assert!(turn.tool_calls.is_empty());
         assert_eq!(turn.content.as_deref(), Some("{\"nombre\":\"casa\"}"));
+    }
+
+    #[test]
+    fn parses_reasoning_content_for_tool_calls() {
+        let text = r#"{"choices":[{"message":{"content":null,"reasoning_content":"pensando","tool_calls":[{"id":"c1","type":"function","function":{"name":"run_command","arguments":"{}"}}]}}]}"#;
+        let turn = parse_response(text).unwrap();
+        assert_eq!(turn.reasoning_content.as_deref(), Some("pensando"));
+        assert_eq!(turn.tool_calls.len(), 1);
     }
 
     #[test]
