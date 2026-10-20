@@ -98,10 +98,28 @@ jobs:
             --cache-from type=gha \
             .
 
+      - name: Package release bundles
+        run: |
+          set -euo pipefail
+          for arch in amd64 arm64; do
+            dir="dist/release/simplebot-linux-$arch"
+            mkdir -p "$dir/config" "$dir/examples"
+            cp "dist/out/simplebot-linux-$arch" "$dir/simplebot"
+            cp deploy/install.sh "$dir/install.sh"
+            cp config/config.toml.example "$dir/config/"
+            cp -r examples/skills "$dir/examples/"
+            cp README.md "$dir/README.md"
+            chmod 755 "$dir/install.sh" "$dir/simplebot"
+            tar -czf "dist/out/simplebot-linux-$arch.tar.gz" \
+              -C dist/release "simplebot-linux-$arch"
+          done
+
       - name: Smoke test binaries
         run: |
           ./dist/out/simplebot-linux-amd64 --version
-          docker run --rm --platform linux/arm64             -v "$PWD/dist/out:/dist:ro"             ubuntu:24.04 /dist/simplebot-linux-arm64 --version
+          docker run --rm --platform linux/arm64 \
+            -v "$PWD/dist/out:/dist:ro" \
+            ubuntu:24.04 /dist/simplebot-linux-arm64 --version
 
       - name: Checksums
         run: |
@@ -116,6 +134,8 @@ jobs:
           path: |
             dist/out/simplebot-linux-amd64
             dist/out/simplebot-linux-arm64
+            dist/out/simplebot-linux-amd64.tar.gz
+            dist/out/simplebot-linux-arm64.tar.gz
             dist/out/SHA256SUMS
 
       - name: Publish GitHub Release assets
@@ -126,4 +146,8 @@ jobs:
           files: |
             dist/out/simplebot-linux-amd64
             dist/out/simplebot-linux-arm64
+            dist/out/simplebot-linux-amd64.tar.gz
+            dist/out/simplebot-linux-arm64.tar.gz
             dist/out/SHA256SUMS
+            config/config.toml.example
+            deploy/install.sh

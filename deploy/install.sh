@@ -1,8 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BIN="${1:-$ROOT/target/aarch64-unknown-linux-musl/release/simplebot}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -d "$SCRIPT_DIR/config" && -d "$SCRIPT_DIR/examples" ]]; then
+  ROOT="$SCRIPT_DIR"
+else
+  ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+fi
+if [[ -z "${1:-}" && -f "$ROOT/simplebot" ]]; then
+  BIN="$ROOT/simplebot"
+else
+  BIN="${1:-$ROOT/target/aarch64-unknown-linux-musl/release/simplebot}"
+fi
 
 if [[ ! -f "$BIN" ]]; then
   echo "No se encuentra el binario: $BIN" >&2
@@ -10,9 +19,10 @@ if [[ ! -f "$BIN" ]]; then
   exit 1
 fi
 
-if [[ "$(uname -m)" != "aarch64" ]]; then
-  echo "Aviso: esta maquina es $(uname -m), no aarch64. Se instalara igualmente el binario indicado." >&2
-fi
+case "$(uname -m)" in
+  aarch64|arm64|x86_64|amd64) ;;
+  *) echo "Aviso: arquitectura $(uname -m) no probada. Se instalara igualmente el binario indicado." >&2 ;;
+esac
 
 if [[ "${EUID}" -eq 0 ]]; then
   SUDO=""

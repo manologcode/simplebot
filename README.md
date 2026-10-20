@@ -25,6 +25,102 @@ Pensado para consumir pocos recursos: I/O bloqueante, sin runtime asincrono, un 
 - `apt` para instalar paquetes.
 - API key de OpenCode Go o de otro proveedor compatible con OpenAI Chat Completions.
 
+## Descargar y ejecutar (sin compilar)
+
+Cada tag `v*` publica una release en GitHub con:
+
+- `simplebot-linux-arm64.tar.gz` — Raspberry Pi OS 64-bit y Orange Pi 4 Pro.
+- `simplebot-linux-amd64.tar.gz` — PC/Ubuntu x86_64.
+- Binarios sueltos, `SHA256SUMS`, `config.toml.example` e `install.sh`.
+
+En la placa, comprueba la arquitectura:
+
+```bash
+uname -m
+# aarch64 -> usa arm64
+# x86_64  -> usa amd64
+```
+
+Descarga la release:
+
+```bash
+cd /tmp
+wget https://github.com/manologcode/simplebot/releases/latest/download/simplebot-linux-arm64.tar.gz
+wget https://github.com/manologcode/simplebot/releases/latest/download/SHA256SUMS
+
+sha256sum -c SHA256SUMS --ignore-missing
+tar -xzf simplebot-linux-arm64.tar.gz
+cd simplebot-linux-arm64
+
+sudo ./install.sh ./simplebot
+```
+
+El `install.sh` instala `/usr/local/bin/simplebot`, crea `/etc/simplebot`, `/var/log/simplebot` y `/var/backups/simplebot`, copia la configuracion de ejemplo y las skills de ejemplo. Si ya existe `/etc/simplebot/config.toml`, no lo sobrescribe.
+
+Configura la API key:
+
+```bash
+sudo install -m 600 /dev/null /etc/simplebot/api_key
+sudo nano /etc/simplebot/api_key
+```
+
+Comprueba y arranca:
+
+```bash
+sudo simplebot doctor
+sudo simplebot
+```
+
+Tambien puedes usar `gh`:
+
+```bash
+gh release download --repo manologcode/simplebot \
+  --pattern 'simplebot-linux-arm64.tar.gz' \
+  --pattern SHA256SUMS
+```
+
+Si no hay release del tag, cada ejecucion del workflow deja los binarios descargables en `Actions -> build-release -> simplebot-binaries`.
+
+### Solo el binario
+
+Si prefieres no usar el tar.gz:
+
+```bash
+wget https://github.com/manologcode/simplebot/releases/latest/download/simplebot-linux-arm64
+chmod +x simplebot-linux-arm64
+sudo install -m 755 simplebot-linux-arm64 /usr/local/bin/simplebot
+sudo install -d -m 750 /etc/simplebot /etc/simplebot/skills
+sudo install -d -m 750 /var/log/simplebot /var/backups/simplebot
+wget https://github.com/manologcode/simplebot/releases/latest/download/config.toml.example
+sudo install -m 640 config.toml.example /etc/simplebot/config.toml
+```
+
+### Imagen Docker
+
+La imagen multi-arquitectura se publica en GitHub Container Registry:
+
+```bash
+# Si el paquete es privado:
+# echo "$GITHUB_TOKEN" | docker login ghcr.io -u manologcode --password-stdin
+
+docker pull ghcr.io/manologcode/simplebot:latest
+
+# Prueba sin acceso al host
+docker run --rm -it ghcr.io/manologcode/simplebot:latest doctor
+
+# Ejecucion con acceso al host (revisa antes docker-compose.yml)
+docker run --rm -it \
+  --privileged \
+  --network host \
+  --pid host \
+  -v /etc/simplebot:/etc/simplebot \
+  -v /var/log/simplebot:/var/log/simplebot \
+  -v /var/backups/simplebot:/var/backups/simplebot \
+  ghcr.io/manologcode/simplebot:latest
+```
+
+`docker run` sin configuracion usa los valores por defecto; para el modo host se recomienda usar el `docker-compose.yml` incluido. Recuerda que `apt-get` dentro del contenedor instala en el contenedor, no en el host.
+
 ## Compilar
 
 En la propia placa:
@@ -94,7 +190,7 @@ Construir y publicar la imagen multi-arquitectura:
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
   --target runtime \
-  -t ghcr.io/TU_USUARIO/simplebot:latest \
+  -t ghcr.io/manologcode/simplebot:latest \
   --push .
 ```
 
@@ -110,27 +206,40 @@ docker compose run --rm simplebot
 
 El compose usa `privileged`, `pid: host`, `network_mode: host` y monta `/etc/NetworkManager`, `/etc/netplan`, `/etc/systemd/network`, `/etc/wpa_supplicant`, D-Bus y los directorios de configuracion, logs y backups. Aun asi, **`apt-get` dentro del contenedor instala en el contenedor, no en el host**, los ficheros fuera de los mounts se modifican dentro del contenedor y la deteccion de distro/placa puede reflejar el contenedor. Para administrar el host al 100% (paquetes incluidos), ejecuta el binario estatico con `sudo` en la placa.
 
-### Release automatica
+### Publicar en GitHub
 
-Al subir un tag:
+Si el repositorio aun no tiene remoto:
+
+```bash
+git init
+git branch -M main
+git add .
+git commit -m "simplebot: agente de administracion"
+git remote add origin git@github.com:manologcode/simplebot.git
+git push -u origin main
+```
+
+Despues, para generar una release descargable:
 
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
 ```
 
+### Release automatica
+
 El workflow se ejecuta al subir cambios a `main`/`master`, al crear un tag `v*` y manualmente. En cada ejecucion:
 
 1. ejecuta `fmt`, `clippy` y los tests dentro de Docker;
-2. construye y publica `ghcr.io/<owner>/<repo>` para `linux/amd64` y `linux/arm64`;
-3. exporta `simplebot-linux-amd64`, `simplebot-linux-arm64` y `SHA256SUMS`;
-4. en tags, adjunta los binarios a la release de GitHub; en `main` quedan como artifacts descargables.
+2. construye y publica `ghcr.io/manologcode/simplebot` para `linux/amd64` y `linux/arm64`;
+3. exporta binarios, tarballs, `SHA256SUMS`, `config.toml.example` e `install.sh`;
+4. en tags, adjunta todo a la release de GitHub; en `main` queda como artifact descargable.
 
 Tambien se puede lanzar manualmente desde `Actions -> build-release -> Run workflow`. El `GITHUB_TOKEN` del repositorio se usa para GHCR; no hace falta crear un secreto adicional. Si el paquete aparece privado, cambia su visibilidad en GitHub Packages.
 
 Si usas `docker compose`, ejecuta antes `deploy/install.sh` o crea `/etc/simplebot` con tu configuracion y skills; el compose monta ese directorio del host sobre el contenedor.
 
-## Instalar
+## Instalar desde el codigo
 
 ```bash
 sudo ./deploy/install.sh target/aarch64-unknown-linux-musl/release/simplebot
