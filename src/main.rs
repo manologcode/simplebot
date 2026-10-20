@@ -496,7 +496,7 @@ fn print_skills(registry: &SkillRegistry) {
 
 fn print_help() {
     println!(
-        "Comandos:\n  <tarea>        ejecutar una tarea en lenguaje natural\n  /doctor        comprobar plataforma y configuracion\n  /skills        listar skills\n  /config        mostrar configuracion efectiva\n  /clear         limpiar pantalla\n  /exit          salir\n\nEjemplos:\n  configura el wifi\n  pon una IP fija en eth0\n  instala htop\n  crea una skill para revisar el estado de la red"
+        "Comandos:\n  <tarea>        ejecutar una tarea en lenguaje natural\n  /doctor        comprobar plataforma y configuracion\n  /skills        listar skills\n  /config        mostrar configuracion efectiva\n  /clear         limpiar pantalla\n  /exit          salir\n\nConfirmaciones: s = si, n = no, A = auto (no vuelve a preguntar en la sesion)\n\nEjemplos:\n  configura el wifi\n  pon una IP fija en eth0\n  instala htop\n  crea una skill para revisar el estado de la red"
     );
 }
 

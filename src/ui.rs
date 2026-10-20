@@ -89,7 +89,7 @@ impl Ui {
             self.warn(&format!("{question} [sin terminal interactiva: no]"));
             return false;
         }
-        let hint = if default_yes { "[S/n]" } else { "[s/N]" };
+        let hint = if default_yes { "[S/n/A]" } else { "[s/N/A]" };
         loop {
             print!("{question} {hint} ");
             let _ = io::stdout().flush();
@@ -106,6 +106,11 @@ impl Ui {
             }
             if ["n", "no"].contains(&answer.as_str()) {
                 return false;
+            }
+            if ["a", "auto", "todo"].contains(&answer.as_str()) {
+                self.auto_yes = true;
+                self.info("auto: no se volvera a preguntar en esta sesion");
+                return true;
             }
         }
     }

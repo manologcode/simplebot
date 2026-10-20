@@ -97,6 +97,7 @@ Comandos del modo interactivo:
 
 ## Permisos
 
+- En las confirmaciones puedes responder `A` para aprobar automaticamente el resto de la sesion.
 - Las lecturas y los cambios conocidos con verificacion se ejecutan directamente.
 - Los comandos desconocidos, instalaciones, borrados y cambios criticos piden confirmacion.
 - Los comandos destructivos estan bloqueados salvo que se active `allow_dangerous`.
