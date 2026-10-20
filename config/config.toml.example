@@ -1,0 +1,75 @@
+# Configuracion de simplebot
+# Copia este fichero a /etc/simplebot/config.toml (permisos 0640) o
+# a ~/.config/simplebot/config.toml y ajusta los valores.
+
+[provider]
+# OpenCode Go (compatible con OpenAI)
+base_url = "https://opencode.ai/inference/go/openai/v1"
+model = "deepseek-v4.1-flash"
+
+# La API key se resuelve en este orden:
+#   1. provider.api_key
+#   2. variable de entorno provider.api_key_env
+#   3. fichero provider.api_key_file (recomendado, permisos 0600)
+# api_key = "sk-..."
+api_key_env = "OPENCODE_API_KEY"
+api_key_file = "/etc/simplebot/api_key"
+
+user_agent = "simplebot/0.1"
+timeout_secs = 120
+max_context_tokens = 32000
+temperature = 0.1
+max_tokens = 4096
+
+[agent]
+max_steps = 40
+max_minutes = 20
+max_tool_output_bytes = 12000
+language = "es"
+max_identical_failures = 3
+session_log = true
+
+[permissions]
+# read_only     = solo lecturas
+# risky         = lecturas y cambios conocidos; confirma riesgos (por defecto)
+# confirm_all   = confirma tambien cambios de bajo riesgo
+mode = "risky"
+
+# ask   = pide permiso antes de instalar (por defecto)
+# never = prohibe instalar
+# allow = permite instalar sin preguntar
+install = "ask"
+
+# Permite comandos bloqueados solo con confirmacion escrita "SI".
+allow_dangerous = false
+
+audit_log = "/var/log/simplebot/audit.jsonl"
+backup_dir = "/var/backups/simplebot"
+
+[ui]
+color = true
+show_commands = true
+
+[skills]
+paths = [
+  "/etc/simplebot/skills",
+  "~/.config/simplebot/skills",
+  "~/.config/opencode/skills",
+  "~/.agents/skills",
+  "~/.claude/skills",
+  "./.simplebot/skills",
+  "./.opencode/skills",
+  "./.agents/skills",
+  "./.claude/skills",
+]
+# confirm = muestra y pide confirmacion antes de guardar una skill
+# off     = deshabilita la generacion
+generation = "confirm"
+max_loaded = 5
+max_bytes = 32768
+
+[platform]
+# auto | raspberry-pi | orange-pi-4-pro | generic-debian
+profile = "auto"
+# auto | networkmanager | netplan | systemd-networkd
+network_backend = "auto"

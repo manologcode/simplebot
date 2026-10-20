@@ -1,0 +1,41 @@
+# Ejecucion en Docker con acceso al host.
+#
+# AVISO: "privileged" + "pid: host" + "network_mode: host" dan mucho poder al
+# contenedor. Usalo solo en una placa dedicada y revisa los mounts.
+#
+# Limitacion importante: apt-get dentro del contenedor instala paquetes en el
+# contenedor, no en el host. Para administrar el host de verdad (apt, systemd,
+# NetworkManager) es mas seguro ejecutar el binario estatico con sudo.
+#
+# Para construir y probar no hace falta nada de esto:
+#   docker buildx build --target test .
+
+services:
+  simplebot:
+    build:
+      context: .
+      target: runtime
+    image: simplebot:local
+    container_name: simplebot
+    stdin_open: true
+    tty: true
+    privileged: true
+    network_mode: host
+    pid: host
+    environment:
+      OPENCODE_API_KEY: ${OPENCODE_API_KEY:-}
+    volumes:
+      - /etc/simplebot:/etc/simplebot
+      - /var/log/simplebot:/var/log/simplebot
+      - /var/backups/simplebot:/var/backups/simplebot
+      - /etc/NetworkManager:/etc/NetworkManager
+      - /etc/netplan:/etc/netplan
+      - /etc/systemd/network:/etc/systemd/network
+      - /etc/wpa_supplicant:/etc/wpa_supplicant
+      - /run/dbus/system_bus_socket:/run/dbus/system_bus_socket
+      - /run/systemd/private:/run/systemd/private
+      - /run/systemd/netif:/run/systemd/netif
+      - /run/NetworkManager:/run/NetworkManager
+      - /run/wpa_supplicant:/run/wpa_supplicant
+      - /var/log/journal:/var/log/journal:ro
+      - /run/log/journal:/run/log/journal:ro
