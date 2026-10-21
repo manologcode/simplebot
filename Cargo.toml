@@ -1,6 +1,6 @@
 [package]
 name = "simplebot"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 description = "Agente de administracion para Raspberry Pi y Orange Pi"
 license = "MIT"
@@ -17,6 +17,7 @@ rustyline = "14"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
+sha2 = "0.10"
 time = { version = "0.3", features = ["formatting"] }
 toml = "0.8"
 ureq = { version = "2.12", features = ["json"] }

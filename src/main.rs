@@ -53,6 +53,15 @@ struct Cli {
 enum Command {
     /// Comprueba configuracion, plataforma y conectividad
     Doctor,
+    /// Comprueba si hay una nueva version y actualiza la aplicacion
+    Update {
+        /// Solo comprueba si hay una nueva version
+        #[arg(long)]
+        check: bool,
+        /// Reinstala la ultima version aunque ya este actualizada
+        #[arg(long)]
+        force: bool,
+    },
     /// Gestiona las skills
     Skills {
         #[command(subcommand)]
@@ -107,6 +116,10 @@ fn run(cli: Cli) -> Result<std::process::ExitCode> {
     match cli.command {
         Some(Command::Doctor) => {
             doctor(&config, config_path.as_deref());
+            return Ok(std::process::ExitCode::SUCCESS);
+        }
+        Some(Command::Update { check, force }) => {
+            simplebot::update::run(check, force)?;
             return Ok(std::process::ExitCode::SUCCESS);
         }
         Some(Command::Skills { action }) => {

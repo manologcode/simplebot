@@ -55,6 +55,22 @@ La configuracion por defecto usa OpenCode Go y el modelo `deepseek-v4.1-flash`. 
 sudo nano /etc/simplebot/config.toml
 ```
 
+## Actualizar
+
+Comprueba si hay una nueva version:
+
+```bash
+simplebot update --check
+```
+
+Descarga y sustituye el binario por la ultima version (verifica el SHA256):
+
+```bash
+sudo simplebot update
+```
+
+El comando conserva la configuracion, las skills, la auditoria y los backups.
+
 ## Uso
 
 Comprueba la instalacion:
